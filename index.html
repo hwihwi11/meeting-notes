@@ -196,6 +196,34 @@
   /* ── entry cards ── */
   .entries { display: flex; flex-direction: column; gap: 8px; }
 
+  /* ── month groups ── */
+  .month-group { margin-bottom: 4px; }
+  .month-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 2px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-sub);
+  }
+  .month-header:hover { color: var(--text); }
+  .month-header .chev {
+    font-size: 10px;
+    color: var(--text-hint);
+    transition: transform 0.15s;
+  }
+  .month-header.collapsed .chev { transform: rotate(-90deg); }
+  .month-entries {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .month-entries.collapsed { display: none; }
+
   .entry-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -514,6 +542,70 @@
   }
   .add-cat-btn:hover { background: var(--border-md); color: var(--text); }
 
+  /* ── mobile nav ── */
+  .mobile-topbar {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1.25rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .mobile-topbar h1 { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; }
+  .hamburger-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    color: var(--text);
+    border-radius: 6px;
+  }
+  .hamburger-btn:hover { background: var(--surface2); }
+  .sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.35);
+    z-index: 99;
+  }
+  .sidebar-backdrop.open { display: block; }
+
+  @media (max-width: 860px) {
+    .layout { flex-direction: column; }
+    .mobile-topbar { display: flex; }
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      width: 250px;
+      z-index: 100;
+      transform: translateX(-100%);
+      transition: transform 0.2s ease;
+      box-shadow: 0 0 28px rgba(0,0,0,0.15);
+    }
+    .sidebar.open { transform: translateX(0); }
+    .main { padding: 1.25rem; max-width: 100%; }
+    .form-2col { grid-template-columns: 1fr; }
+    .overlay, .detail-overlay { padding: 0.75rem; }
+    .modal, .detail-panel { padding: 1.25rem; }
+  }
+
+  @media (hover: none) {
+    .entry-actions { opacity: 1; }
+  }
+
+  @media (max-width: 480px) {
+    .main { padding: 1rem 0.85rem; }
+    .entry-card { padding: 0.9rem 1rem; }
+    .toolbar { flex-wrap: wrap; }
+  }
+
   /* scrollbar */
   ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -544,6 +636,16 @@
 </div>
 
 <div class="layout" id="app-layout" style="display:none">
+  <!-- mobile top bar -->
+  <div class="mobile-topbar">
+    <button class="hamburger-btn" onclick="toggleSidebar()" aria-label="메뉴">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <h1>📋 회의록</h1>
+    <div style="width:28px"></div>
+  </div>
+  <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeSidebar()"></div>
+
   <!-- sidebar -->
   <nav class="sidebar">
     <div class="sidebar-logo">
@@ -682,6 +784,18 @@ let editId = null;
 let detailId = null;
 let pendingTags = [];
 let currentUser = null;
+let collapsedMonths = new Set();
+let collapseInitialized = false;
+
+/* ── mobile sidebar ── */
+function toggleSidebar() {
+  document.querySelector('.sidebar').classList.toggle('open');
+  document.getElementById('sidebar-backdrop').classList.toggle('open');
+}
+function closeSidebar() {
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('sidebar-backdrop').classList.remove('open');
+}
 
 /* ── auth ── */
 async function login() {
@@ -728,6 +842,11 @@ async function loadNotes() {
   const { data: rows, error } = await sb.from('notes').select('*').order('date', { ascending: false });
   if (error) { alert('회의록을 불러오지 못했습니다: ' + error.message); return; }
   data = rows.map(r => ({ id: r.id, date: r.date, cat: r.cat, title: r.title, body: r.body, tags: r.tags || [] }));
+  if (!collapseInitialized) {
+    const keys = [...new Set(data.map(e => e.date.slice(0,7)))].sort().reverse();
+    collapsedMonths = new Set(keys.slice(2));
+    collapseInitialized = true;
+  }
 }
 
 async function loadCustomCats() {
@@ -792,26 +911,9 @@ function renderTagFilters() {
   ).join('');
 }
 
-function renderList() {
-  const q = document.getElementById('search').value.toLowerCase();
-  const sort = document.getElementById('sort-sel').value;
-
-  let list = data.slice();
-  if (activeCat !== '전체') list = list.filter(e=>e.cat===activeCat);
-  if (activeTag) list = list.filter(e=>e.tags.includes(activeTag));
-  if (q) list = list.filter(e=>(e.title+e.body+e.tags.join(' ')+e.cat).toLowerCase().includes(q));
-  list.sort((a,b)=> sort==='desc' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date));
-
-  document.getElementById('list-count').textContent = `${list.length}건`;
-
-  const el = document.getElementById('entries');
-  if (!list.length) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">📭</div>기록된 회의록이 없습니다</div>`;
-    return;
-  }
-  el.innerHTML = list.map(e => {
-    const c = getCatColor(e.cat);
-    return `<div class="entry-card" onclick="openDetail('${e.id}')">
+function entryCardHtml(e) {
+  const c = getCatColor(e.cat);
+  return `<div class="entry-card" onclick="openDetail('${e.id}')">
       <div class="entry-header">
         <div>
           <div class="entry-meta">
@@ -832,11 +934,57 @@ function renderList() {
       <p class="entry-body">${esc(e.body)}</p>
       ${e.tags.length ? `<div class="entry-tags">${e.tags.map(t=>`<span class="entry-tag">#${esc(t)}</span>`).join('')}</div>`:''}
     </div>`;
+}
+
+function toggleMonth(key) {
+  if (collapsedMonths.has(key)) collapsedMonths.delete(key); else collapsedMonths.add(key);
+  renderList();
+}
+
+function renderList() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const sort = document.getElementById('sort-sel').value;
+
+  let list = data.slice();
+  if (activeCat !== '전체') list = list.filter(e=>e.cat===activeCat);
+  if (activeTag) list = list.filter(e=>e.tags.includes(activeTag));
+  if (q) list = list.filter(e=>(e.title+e.body+e.tags.join(' ')+e.cat).toLowerCase().includes(q));
+  list.sort((a,b)=> sort==='desc' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date));
+
+  document.getElementById('list-count').textContent = `${list.length}건`;
+
+  const el = document.getElementById('entries');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📭</div>기록된 회의록이 없습니다</div>`;
+    return;
+  }
+
+  const forceExpand = !!q;
+  const groups = [];
+  const groupMap = {};
+  list.forEach(e => {
+    const key = e.date.slice(0,7);
+    if (!groupMap[key]) { groupMap[key] = []; groups.push(key); }
+    groupMap[key].push(e);
+  });
+
+  el.innerHTML = groups.map(key => {
+    const items = groupMap[key];
+    const collapsed = !forceExpand && collapsedMonths.has(key);
+    const [y, m] = key.split('-');
+    return `<div class="month-group">
+      <div class="month-header${collapsed?' collapsed':''}" onclick="toggleMonth('${key}')">
+        <span class="chev">▾</span>
+        <span>${y}년 ${parseInt(m,10)}월</span>
+        <span class="nav-count">${items.length}</span>
+      </div>
+      <div class="month-entries${collapsed?' collapsed':''}">${items.map(entryCardHtml).join('')}</div>
+    </div>`;
   }).join('');
 }
 
 function render() { renderSidebar(); renderTagFilters(); renderList(); }
-function setCat(c) { activeCat=c; activeTag=null; render(); }
+function setCat(c) { activeCat=c; activeTag=null; closeSidebar(); render(); }
 function setTag(t) { activeTag = activeTag===t ? null : t; renderTagFilters(); renderList(); }
 
 async function addCustomCat() {
