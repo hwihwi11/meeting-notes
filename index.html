@@ -893,6 +893,7 @@ function renderSidebar() {
         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c)}</span>
         <span class="nav-count">${cnt}</span>
       </button>
+      <button class="del-cat-btn" onclick="editCustomCat(${i})" title="카테고리 수정">✎</button>
       <button class="del-cat-btn" onclick="deleteCustomCat(${i})" title="카테고리 삭제">×</button>
     </div>`;
   }).join('');
@@ -1001,6 +1002,22 @@ async function addCustomCat() {
   const { error } = await sb.from('custom_categories').insert({ name: v, user_id: currentUser.id });
   if (error) { alert('카테고리 추가 실패: ' + error.message); return; }
   inp.value = '';
+  await loadCustomCats();
+  render();
+}
+async function editCustomCat(i) {
+  const row = customCatRows[i];
+  const oldName = row.name;
+  const newName = prompt('카테고리 이름 수정', oldName);
+  if (!newName || newName.trim() === '' || newName.trim() === oldName) return;
+  const v = newName.trim();
+  if ([...FIXED_CATS, ...customCats].includes(v)) { alert('이미 존재하는 카테고리입니다.'); return; }
+  const { error } = await sb.from('custom_categories').update({ name: v }).eq('id', row.id);
+  if (error) { alert('카테고리 수정 실패: ' + error.message); return; }
+  const { error: upErr } = await sb.from('notes').update({ cat: v }).eq('cat', oldName);
+  if (upErr) { alert('회의록 카테고리 변경 실패: ' + upErr.message); return; }
+  if (activeCat === oldName) activeCat = v;
+  await loadNotes();
   await loadCustomCats();
   render();
 }
