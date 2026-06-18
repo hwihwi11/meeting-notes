@@ -765,7 +765,7 @@ const SUPABASE_URL = 'https://anivpqhjfnhebciifozy.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_AOGKFoiEdiSq4AFdE5WRdQ_KjE8b8G_';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const FIXED_CATS = ['본부 회의', '파트장 회의', '파트 회의', '기타'];
+let FIXED_CATS = ['본부 회의', '파트장 회의', '파트 회의', '기타'];
 const FIXED_COLORS = {
   '본부 회의':  { bg:'#EBF3FF', color:'#1557A0' },
   '파트장 회의':{ bg:'#E4F7EE', color:'#0F6E56' },
@@ -881,9 +881,16 @@ function allTags() {
 function renderSidebar() {
   const fixedItems = ['전체', ...FIXED_CATS].map(c => {
     const cnt = c === '전체' ? data.length : data.filter(e=>e.cat===c).length;
-    return `<button class="nav-item${activeCat===c?' active':''}" onclick="setCat('${c}')">
+    if (c === '전체') return `<button class="nav-item${activeCat===c?' active':''}" onclick="setCat('${c}')">
       <span>${esc(c)}</span><span class="nav-count">${cnt}</span>
     </button>`;
+    return `<div class="custom-nav-item">
+      <button class="nav-item${activeCat===c?' active':''}" style="flex:1;min-width:0" onclick="setCat('${esc(c)}')">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c)}</span>
+        <span class="nav-count">${cnt}</span>
+      </button>
+      <button class="del-cat-btn" onclick="editFixedCat('${esc(c)}')" title="카테고리 수정">✎</button>
+    </div>`;
   }).join('');
 
   const customItems = customCats.map((c,i) => {
@@ -1003,6 +1010,23 @@ async function addCustomCat() {
   if (error) { alert('카테고리 추가 실패: ' + error.message); return; }
   inp.value = '';
   await loadCustomCats();
+  render();
+}
+async function editFixedCat(oldName) {
+  const newName = prompt('카테고리 이름 수정', oldName);
+  if (!newName || newName.trim() === '' || newName.trim() === oldName) return;
+  const v = newName.trim();
+  if ([...FIXED_CATS, ...customCats].includes(v)) { alert('이미 존재하는 카테고리입니다.'); return; }
+  const { error } = await sb.from('notes').update({ cat: v }).eq('cat', oldName);
+  if (error) { alert('회의록 카테고리 변경 실패: ' + error.message); return; }
+  const idx = FIXED_CATS.indexOf(oldName);
+  if (idx !== -1) {
+    FIXED_CATS[idx] = v;
+    const col = FIXED_COLORS[oldName];
+    if (col) { FIXED_COLORS[v] = col; delete FIXED_COLORS[oldName]; }
+  }
+  if (activeCat === oldName) activeCat = v;
+  await loadNotes();
   render();
 }
 async function editCustomCat(i) {
