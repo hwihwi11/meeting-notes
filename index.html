@@ -1252,7 +1252,8 @@ let recRecognition = null;
 let recIsRecording = false;
 let recTimerInterval = null;
 let recSeconds = 0;
-let recTranscript = '';
+let recBaseTranscript = '';
+let recFinals = {};
 let recInterim = '';
 
 function openRecorder() {
@@ -1264,7 +1265,8 @@ function openRecorder() {
   document.getElementById('rec-start-btn').classList.add('rec-btn-start');
   document.getElementById('rec-start-btn').classList.remove('rec-btn-stop');
   document.getElementById('rec-timer').textContent = '00:00:00';
-  recTranscript = '';
+  recBaseTranscript = '';
+  recFinals = {};
   recInterim = '';
   recSeconds = 0;
 }
@@ -1289,18 +1291,26 @@ function startRecording() {
   recRecognition.maxAlternatives = 1;
 
   recRecognition.onresult = (e) => {
-    let final = '', interim = '';
+    let interim = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
-      if (e.results[i].isFinal) final += e.results[i][0].transcript + ' ';
-      else interim = e.results[i][0].transcript;
+      if (e.results[i].isFinal) {
+        recFinals[i] = e.results[i][0].transcript;
+      } else {
+        interim = e.results[i][0].transcript;
+      }
     }
-    if (final) recTranscript += final;
     recInterim = interim;
-    document.getElementById('rec-transcript').value = (recTranscript + recInterim).trim();
+    const allFinal = Object.values(recFinals).join(' ');
+    document.getElementById('rec-transcript').value = (recBaseTranscript + ' ' + allFinal + ' ' + recInterim).trim();
   };
 
   recRecognition.onend = () => {
-    if (recIsRecording) recRecognition.start();
+    if (recIsRecording) {
+      recBaseTranscript = document.getElementById('rec-transcript').value.replace(recInterim, '').trim();
+      recFinals = {};
+      recInterim = '';
+      recRecognition.start();
+    }
   };
 
   recRecognition.onerror = (e) => {
@@ -1329,9 +1339,10 @@ function startRecording() {
 function stopRecording() {
   if (recRecognition) { recIsRecording = false; recRecognition.stop(); recRecognition = null; }
   clearInterval(recTimerInterval);
-  recTranscript += recInterim;
+  const finalText = (recBaseTranscript + ' ' + Object.values(recFinals).join(' ')).trim();
   recInterim = '';
-  document.getElementById('rec-transcript').value = recTranscript.trim();
+  recFinals = {};
+  document.getElementById('rec-transcript').value = finalText;
   document.getElementById('rec-dot').classList.remove('recording');
   document.getElementById('rec-status-text').textContent = '녹음 완료';
   document.getElementById('rec-start-btn').textContent = '녹음 시작';
