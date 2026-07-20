@@ -96,10 +96,9 @@
     text-align: center;
   }
 
-  .sidebar-bottom {
-    margin-top: auto;
-    padding: 1rem;
-    border-top: 1px solid var(--border);
+  .sidebar-actions {
+    padding: 0 1rem 0;
+    margin-bottom: 0;
   }
   .sidebar-bottom-row {
     display: flex;
@@ -110,9 +109,10 @@
 
   /* ── mini calendar ── */
   .mini-cal {
-    padding: 0 1rem 1.25rem;
+    padding: 1rem 1rem 1.25rem;
+    border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
-    margin-bottom: 1.25rem;
+    margin: 1rem 0 1.25rem;
   }
   .mini-cal-header {
     display: flex;
@@ -136,31 +136,33 @@
   .mini-cal-grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-auto-rows: 28px;
     width: 100%;
-    gap: 1px;
+    gap: 2px 1px;
   }
   .mini-cal-dow {
     font-size: 9px;
     color: var(--text-hint);
     text-align: center;
-    padding: 3px 0 4px;
     font-weight: 600;
     min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   .mini-cal-day {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: center;
     gap: 2px;
-    padding: 2px 0;
     border-radius: 4px;
     font-size: 11px;
     color: var(--text-sub);
     cursor: pointer;
     transition: background 0.1s, color 0.1s;
     min-width: 0;
-    min-height: 30px;
+    overflow: hidden;
   }
   .mini-cal-day:hover { background: var(--surface2); color: var(--text); }
   .mini-cal-day.today { font-weight: 700; color: var(--text); }
@@ -839,6 +841,16 @@
       <p>파트장·팀장 회의</p>
     </div>
 
+    <div class="sidebar-actions">
+      <button class="btn-primary" style="width:100%;justify-content:center" onclick="openModal()">
+        + 새 회의록
+      </button>
+      <div class="sidebar-bottom-row">
+        <button class="btn-cancel" onclick="openRecorder()">🎙️ 녹음</button>
+        <button class="btn-cancel" onclick="logout()">로그아웃</button>
+      </div>
+    </div>
+
     <div class="mini-cal" id="mini-cal"></div>
 
     <div class="sidebar-section">
@@ -849,16 +861,6 @@
     <div class="sidebar-section">
       <p class="sidebar-label">추가 카테고리</p>
       <div id="custom-cat-section"></div>
-    </div>
-
-    <div class="sidebar-bottom">
-      <button class="btn-primary" style="width:100%;justify-content:center" onclick="openModal()">
-        + 새 회의록
-      </button>
-      <div class="sidebar-bottom-row">
-        <button class="btn-cancel" onclick="openRecorder()">🎙️ 녹음</button>
-        <button class="btn-cancel" onclick="logout()">로그아웃</button>
-      </div>
     </div>
   </nav>
 
