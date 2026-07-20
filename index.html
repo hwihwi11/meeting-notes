@@ -106,10 +106,42 @@
   /* ── toolbar ── */
   .toolbar {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
     align-items: center;
     margin-bottom: 1.5rem;
   }
+  .date-filter-wrap {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .date-filter-wrap input[type="date"] {
+    padding: 7px 10px;
+    border: 1px solid var(--border-md);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-family: inherit;
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+    cursor: pointer;
+  }
+  .date-filter-wrap input[type="date"]:focus { border-color: var(--text); }
+  .date-filter-sep { font-size: 12px; color: var(--text-hint); }
+  .date-clear-btn {
+    padding: 6px 10px;
+    border: 1px solid var(--border-md);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text-hint);
+    font-size: 12px;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+  .date-clear-btn:hover { color: var(--text); }
   .search-wrap {
     flex: 1;
     position: relative;
@@ -747,6 +779,12 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input type="text" id="search" placeholder="제목, 내용, 태그 검색..." oninput="renderList()">
       </div>
+      <div class="date-filter-wrap">
+        <input type="date" id="date-from" onchange="renderList()" title="시작일">
+        <span class="date-sep">~</span>
+        <input type="date" id="date-to" onchange="renderList()" title="종료일">
+        <button class="date-clear-btn" onclick="clearDateFilter()" title="날짜 필터 초기화">✕</button>
+      </div>
     </div>
 
     <div class="tag-filter-row" id="tag-filters"></div>
@@ -1045,10 +1083,15 @@ function renderList() {
   const q = document.getElementById('search').value.toLowerCase();
   const sort = document.getElementById('sort-sel').value;
 
+  const dateFrom = document.getElementById('date-from').value;
+  const dateTo = document.getElementById('date-to').value;
+
   let list = data.slice();
   if (activeCat !== '전체') list = list.filter(e=>e.cat===activeCat);
   if (activeTag) list = list.filter(e=>e.tags.includes(activeTag));
   if (q) list = list.filter(e=>(e.title+e.body+e.tags.join(' ')+e.cat).toLowerCase().includes(q));
+  if (dateFrom) list = list.filter(e=>e.date >= dateFrom);
+  if (dateTo) list = list.filter(e=>e.date <= dateTo);
   list.sort((a,b)=> sort==='desc' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date));
 
   document.getElementById('list-count').textContent = `${list.length}건`;
@@ -1086,6 +1129,11 @@ function renderList() {
 function render() { renderSidebar(); renderTagFilters(); renderList(); }
 function setCat(c) { activeCat=c; activeTag=null; closeSidebar(); render(); }
 function setTag(t) { activeTag = activeTag===t ? null : t; renderTagFilters(); renderList(); }
+function clearDateFilter() {
+  document.getElementById('date-from').value = '';
+  document.getElementById('date-to').value = '';
+  renderList();
+}
 
 async function addCustomCat() {
   const inp = document.getElementById('new-cat-inp');
