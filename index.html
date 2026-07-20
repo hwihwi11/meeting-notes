@@ -100,6 +100,73 @@
     padding: 1rem;
     border-top: 1px solid var(--border);
   }
+  .sidebar-bottom-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .sidebar-bottom-row .btn-cancel { flex: 1; justify-content: center; margin-top: 0; font-size: 12px; padding: 7px 6px; }
+
+  /* ── mini calendar ── */
+  .mini-cal {
+    padding: 0 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1.25rem;
+  }
+  .mini-cal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .mini-cal-title { font-size: 12px; font-weight: 600; color: var(--text-sub); }
+  .mini-cal-nav {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-hint);
+    font-size: 14px;
+    padding: 2px 5px;
+    border-radius: 4px;
+    line-height: 1;
+    transition: background 0.1s, color 0.1s;
+  }
+  .mini-cal-nav:hover { background: var(--surface2); color: var(--text); }
+  .mini-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+  }
+  .mini-cal-dow {
+    font-size: 9.5px;
+    color: var(--text-hint);
+    text-align: center;
+    padding: 2px 0;
+    font-weight: 600;
+  }
+  .mini-cal-day {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 3px 1px;
+    border-radius: 5px;
+    font-size: 11px;
+    color: var(--text-sub);
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+    min-height: 28px;
+    line-height: 1.3;
+  }
+  .mini-cal-day:hover { background: var(--surface2); color: var(--text); }
+  .mini-cal-day.today { font-weight: 700; color: var(--text); }
+  .mini-cal-day.today span.cal-num { background: var(--text); color: #fff; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
+  .mini-cal-day.has-note .cal-dot { display: block; }
+  .mini-cal-day.selected span.cal-num { background: #4f8ef7; color: #fff; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
+  .cal-dot { display: none; width: 4px; height: 4px; border-radius: 50%; background: #4f8ef7; }
+  .mini-cal-day.empty { cursor: default; }
+  .mini-cal-day.empty:hover { background: none; }
 
   .main { flex: 1; padding: 2rem 2.5rem; max-width: 860px; }
 
@@ -187,12 +254,27 @@
   .btn-primary:hover { opacity: 0.85; }
 
   /* ── tag pills ── */
+  .tag-filter-wrap { margin-bottom: 1.25rem; }
   .tag-filter-row {
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
-    margin-bottom: 1.25rem;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
   }
+  .tag-filter-row.collapsed { max-height: 96px; }
+  .tag-more-btn {
+    margin-top: 6px;
+    font-size: 11.5px;
+    color: var(--text-hint);
+    background: none;
+    border: 1px solid var(--border-md);
+    border-radius: 20px;
+    padding: 3px 12px;
+    cursor: pointer;
+    transition: color 0.12s, border-color 0.12s;
+  }
+  .tag-more-btn:hover { color: var(--text); border-color: var(--text); }
   .tag-pill {
     font-size: 11.5px;
     padding: 3px 10px;
@@ -749,6 +831,8 @@
       <p>파트장·팀장 회의</p>
     </div>
 
+    <div class="mini-cal" id="mini-cal"></div>
+
     <div class="sidebar-section">
       <p class="sidebar-label">카테고리</p>
       <div id="cat-nav"></div>
@@ -763,12 +847,10 @@
       <button class="btn-primary" style="width:100%;justify-content:center" onclick="openModal()">
         + 새 회의록
       </button>
-      <button class="btn-cancel" style="width:100%;justify-content:center;margin-top:8px" onclick="openRecorder()">
-        🎙️ 녹음
-      </button>
-      <button class="btn-cancel" style="width:100%;justify-content:center;margin-top:8px" onclick="logout()">
-        로그아웃
-      </button>
+      <div class="sidebar-bottom-row">
+        <button class="btn-cancel" onclick="openRecorder()">🎙️ 녹음</button>
+        <button class="btn-cancel" onclick="logout()">로그아웃</button>
+      </div>
     </div>
   </nav>
 
@@ -787,7 +869,9 @@
       </div>
     </div>
 
-    <div class="tag-filter-row" id="tag-filters"></div>
+    <div class="tag-filter-wrap" id="tag-filter-wrap">
+      <div class="tag-filter-row collapsed" id="tag-filters"></div>
+    </div>
 
     <div class="list-header">
       <span class="list-count" id="list-count"></span>
@@ -1040,13 +1124,40 @@ function renderSidebar() {
   document.getElementById('custom-cat-section').innerHTML = customItems + addRow;
 }
 
+let tagFilterExpanded = false;
+
 function renderTagFilters() {
   const tags = allTags();
+  const wrap = document.getElementById('tag-filter-wrap');
   const el = document.getElementById('tag-filters');
-  if (!tags.length) { el.innerHTML=''; return; }
+  if (!tags.length) { el.innerHTML=''; wrap.querySelector('.tag-more-btn')?.remove(); return; }
   el.innerHTML = tags.map(t =>
     `<span class="tag-pill${activeTag===t?' active':''}" onclick="setTag('${t}')">#${esc(t)}</span>`
   ).join('');
+
+  // 더 보기 버튼
+  let moreBtn = wrap.querySelector('.tag-more-btn');
+  if (!moreBtn) {
+    moreBtn = document.createElement('button');
+    moreBtn.className = 'tag-more-btn';
+    moreBtn.onclick = () => { tagFilterExpanded = !tagFilterExpanded; renderTagFilters(); };
+    wrap.appendChild(moreBtn);
+  }
+
+  // 접힌 상태에서 실제로 내용이 잘리는지 확인
+  el.classList.toggle('collapsed', !tagFilterExpanded);
+  const isOverflowing = el.scrollHeight > 100;
+
+  if (!isOverflowing && !tagFilterExpanded) {
+    el.classList.remove('collapsed');
+    moreBtn.style.display = 'none';
+  } else if (tagFilterExpanded) {
+    moreBtn.style.display = '';
+    moreBtn.textContent = '접기 ▲';
+  } else {
+    moreBtn.style.display = '';
+    moreBtn.textContent = `더 보기 ▼`;
+  }
 }
 
 function entryCardHtml(e) {
@@ -1126,12 +1237,75 @@ function renderList() {
   }).join('');
 }
 
-function render() { renderSidebar(); renderTagFilters(); renderList(); }
+function render() { renderSidebar(); renderTagFilters(); renderMiniCal(); renderList(); }
 function setCat(c) { activeCat=c; activeTag=null; closeSidebar(); render(); }
 function setTag(t) { activeTag = activeTag===t ? null : t; renderTagFilters(); renderList(); }
+
+/* ── mini calendar ── */
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth(); // 0-based
+let calSelectedDate = null;
+
+function renderMiniCal() {
+  const el = document.getElementById('mini-cal');
+  if (!el) return;
+  const noteDates = new Set(data.map(e => e.date));
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+  const firstDay = new Date(calYear, calMonth, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+  const DOWS = ['일','월','화','수','목','금','토'];
+
+  let cells = '';
+  // 빈 칸
+  for (let i = 0; i < firstDay; i++) cells += `<div class="mini-cal-day empty"></div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = ds === todayStr;
+    const hasNote = noteDates.has(ds);
+    const isSelected = ds === calSelectedDate;
+    const cls = ['mini-cal-day', isToday?'today':'', hasNote?'has-note':'', isSelected?'selected':''].filter(Boolean).join(' ');
+    cells += `<div class="${cls}" onclick="calSelectDate('${ds}')"><span class="cal-num">${d}</span><span class="cal-dot"></span></div>`;
+  }
+
+  el.innerHTML = `
+    <div class="mini-cal-header">
+      <button class="mini-cal-nav" onclick="calMove(-1)">&#8249;</button>
+      <span class="mini-cal-title">${calYear}년 ${calMonth+1}월</span>
+      <button class="mini-cal-nav" onclick="calMove(1)">&#8250;</button>
+    </div>
+    <div class="mini-cal-grid">
+      ${DOWS.map(d=>`<div class="mini-cal-dow">${d}</div>`).join('')}
+      ${cells}
+    </div>`;
+}
+
+function calMove(dir) {
+  calMonth += dir;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderMiniCal();
+}
+
+function calSelectDate(ds) {
+  if (calSelectedDate === ds) {
+    calSelectedDate = null;
+    clearDateFilter();
+  } else {
+    calSelectedDate = ds;
+    document.getElementById('date-from').value = ds;
+    document.getElementById('date-to').value = ds;
+    renderList();
+  }
+  renderMiniCal();
+}
+
 function clearDateFilter() {
   document.getElementById('date-from').value = '';
   document.getElementById('date-to').value = '';
+  calSelectedDate = null;
+  renderMiniCal();
   renderList();
 }
 
