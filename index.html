@@ -1252,7 +1252,14 @@ function renderList() {
 }
 
 function render() { renderSidebar(); renderTagFilters(); renderMiniCal(); renderList(); }
-function setCat(c) { activeCat=c; activeTag=null; closeSidebar(); render(); }
+function setCat(c) {
+  activeCat=c; activeTag=null;
+  // 카테고리를 누르면 달력 날짜 필터 해제
+  calSelectedDate=null;
+  document.getElementById('date-from').value='';
+  document.getElementById('date-to').value='';
+  closeSidebar(); render();
+}
 function setTag(t) { activeTag = activeTag===t ? null : t; renderTagFilters(); renderList(); }
 
 /* ── mini calendar ── */
@@ -1306,13 +1313,14 @@ function calSelectDate(ds) {
   if (calSelectedDate === ds) {
     calSelectedDate = null;
     clearDateFilter();
-  } else {
-    calSelectedDate = ds;
-    document.getElementById('date-from').value = ds;
-    document.getElementById('date-to').value = ds;
-    renderList();
+    return;
   }
-  renderMiniCal();
+  calSelectedDate = ds;
+  // 날짜를 누르면 카테고리/태그 필터 해제 (달력 점과 목록 기준 일치)
+  activeCat = '전체'; activeTag = null;
+  document.getElementById('date-from').value = ds;
+  document.getElementById('date-to').value = ds;
+  render();
 }
 
 function clearDateFilter() {
