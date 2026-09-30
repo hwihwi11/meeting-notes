@@ -1,0 +1,25 @@
+name: Supabase keepalive
+
+on:
+  schedule:
+    - cron: "0 0 */3 * *"   # 3일마다 09:00 KST
+  workflow_dispatch:        # Actions 탭에서 수동 실행 가능
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          # legacy anon 키(eyJ...)면 Bearer 헤더도 함께, publishable 키면 apikey만
+          AUTH=()
+          case "$SUPABASE_ANON_KEY" in eyJ*) AUTH=(-H "Authorization: Bearer $SUPABASE_ANON_KEY");; esac
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$SUPABASE_URL/rest/v1/notes?select=*&limit=1" \
+            -H "apikey: $SUPABASE_ANON_KEY" "${AUTH[@]}")
+          echo "HTTP $code"
+          # 2xx가 아니면 실패로 표시 → GitHub에서 알림 메일이 옴
+          [ "$code" -ge 200 ] && [ "$code" -lt 300 ]
