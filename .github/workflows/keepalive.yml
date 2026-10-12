@@ -2,7 +2,7 @@ name: Supabase keepalive
 
 on:
   schedule:
-    - cron: "0 0 */3 * *"   # 3일마다 09:00 KST
+    - cron: "0 0 * * *"   # 매일 09:00 KST
   workflow_dispatch:        # Actions 탭에서 수동 실행 가능
 
 jobs:
